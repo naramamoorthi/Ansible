@@ -1,0 +1,50 @@
+---
+- hosts: all
+  become: yes
+  vars:
+    node_exporter_version: 0.18.1
+    exporter_svc_id: prom-exporter.svc
+  tasks:
+    - name: test connection
+      ping:
+    - name: create group
+      group:
+        name: prom-exporter.svc
+        state: present
+    - name: create user
+      user:
+        name: prom-exporter.svc
+        group: prom-exporter.svc
+        createhome: no
+        system: yes
+        state: present
+    - name: create opt directory for exporter
+      file:
+        path: /opt/prometheus_exporters
+        state: directory
+    - name: download node exporter
+      get_url:
+        url: https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
+        dest: /tmp
+    - name: Extract node exporter
+      unarchive:
+        remote_src: yes
+        src: /tmp/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
+        dest: /tmp
+    - name: Move node-exporter
+      command: mv /tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter /opt/prometheus_exporters/node_exporter
+    - name: Change node_exporter file permission
+      file:
+        path: /opt/prometheus_exporters/node_exporter
+        owner: "{{ exporter_svc_id }}"
+        group: "{{ exporter_svc_id }}"
+    - name: install unit file to systemd
+      template:
+        src: /opt/prometheus_exporters/node_exporter.service
+        dest: /etc/systemd/system/node_exporter.service
+    - name: configure systemd to use service
+      systemd:
+        daemon_reload: yes
+        enabled: yes
+        state: started
+        name: node_exporter.service

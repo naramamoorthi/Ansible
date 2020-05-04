@@ -1,0 +1,27 @@
+---
+
+ - name: Add Ansible SSH User to Servers
+   hosts: all
+   vars:
+     - user_password: '$6$cTdpcoGnXoI8db8j$mARfJSFkvEuJr6nBzDEJOr1./BTZju71unMFntOU7FFvFXsYRbiQVI6w79NUqt7Cs8nHPahx/cGmjz6IIwY991'
+   gather_facts: no
+   remote_user: plab.ansible
+   become: true
+
+   tasks:
+
+      - name: Add the ansible ssh user
+        user:
+             name: plab.ansible
+             shell: /bin/bash
+             password: "{{ user_password }}"
+
+      - name: Add user to sudoers file
+        copy:
+             dest: "/etc/sudoers.d/plab.ansible"
+             content: "plab.ansible  ALL=(ALL)  NOPASSWD: ALL"
+
+      - name: Copy SSH Key
+        authorized_key: user=plab.ansible
+                        key="{{ lookup('file','/home/plab.ansible/.ssh/id_rsa.pub') }}"
+                        state=present

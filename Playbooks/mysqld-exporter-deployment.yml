@@ -1,0 +1,61 @@
+---
+- hosts: dbservers
+  become: yes
+  
+  vars:
+    mysqld_exporter_version: 0.12.1
+    exporter_svc_id: prom-exporter.svc
+  tasks:
+    - name: test connection
+      ping:
+    - name: Create mysqld exporter database user
+      no_log: true
+      ignore_errors: true
+      mysql_user:
+        login_user: root
+        login_password: dothislab!!
+        name: mysqld_exporter
+        password: dothislab!!
+        priv: "*.*:REPLICATION CLIENT"
+        state: present
+    - name: create group
+      group:
+        name: prom-exporter.svc
+        state: present
+    - name: create user
+      user:
+        name: prom-exporter.svc
+        group: prom-exporter.svc
+        createhome: no
+        system: yes
+        state: present
+    - name: create opt directory for exporter
+      file:
+        path: /opt/prometheus_exporters
+        state: directory
+    - name: download mysqld exporter
+      get_url:
+        url: https://github.com/prometheus/mysqld_exporter/releases/download/v{{ mysqld_exporter_version }}/mysqld_exporter-{{ mysqld_exporter_version }}.linux-amd64.tar.gz
+        dest: /tmp
+    - name: Extract mysqld exporter
+      unarchive:
+        remote_src: yes
+        src: /tmp/mysqld_exporter-{{ mysqld_exporter_version }}.linux-amd64.tar.gz
+        dest: /tmp
+    - name: Move mysqld-exporter
+      command: mv /tmp/mysqld_exporter-{{ mysqld_exporter_version }}.linux-amd64/mysqld_exporter /opt/prometheus_exporters/mysqld_exporter
+    - name: Change mysqld_exporter file permission
+      file:
+        path: /opt/prometheus_exporters/mysqld_exporter
+        owner: "{{ exporter_svc_id }}"
+        group: "{{ exporter_svc_id }}"
+    - name: install unit file to systemd
+      template:
+        src: /opt/prometheus_exporters/mysqld_exporter.service
+        dest: /etc/systemd/system/mysqld_exporter.service
+    - name: configure systemd to use service
+      systemd:
+        daemon_reload: yes
+        enabled: yes
+        state: started
+        name: mysqld_exporter.service

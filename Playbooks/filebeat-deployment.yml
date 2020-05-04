@@ -1,0 +1,15 @@
+---
+- hosts: all
+  become: yes
+  roles:
+    - role: elastic.beats
+  vars:
+    beats_version: 7.6.2
+    beat: filebeat
+    beat_conf:
+      filebeat:
+        inputs:
+          - type: log
+            enabled: true
+            paths:
+              - /var/log/*.log
